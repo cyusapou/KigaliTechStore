@@ -4,9 +4,25 @@
       <!-- Profile Header -->
       <div class="profile-header">
         <div class="profile-avatar">
-          <div class="avatar-circle large">
-            {{ user?.name?.charAt(0)?.toUpperCase() || 'U' }}
+          <div class="avatar-container" @click="triggerFileInput">
+            <div class="avatar-circle large" :style="avatarStyle">
+              <img v-if="profilePicture" :src="profilePicture" :alt="user?.name" class="avatar-image" />
+              <span v-else>{{ user?.name?.charAt(0)?.toUpperCase() || 'U' }}</span>
+            </div>
+            <div class="avatar-overlay">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <path d="M12 12m-3.2 0a3.2 3.2 0 1 0 6.4 0a3.2 3.2 0 1 0 -6.4 0M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15a5 5 0 0 1-5-5a5 5 0 0 1 5-5a5 5 0 0 1 5 5a5 5 0 0 1-5 5z"/>
+              </svg>
+              <span>Change Photo</span>
+            </div>
           </div>
+          <input 
+            ref="fileInput" 
+            type="file" 
+            accept="image/*" 
+            @change="handleFileChange" 
+            class="hidden-input"
+          />
         </div>
         <div class="profile-info">
           <h1 class="profile-name">{{ user?.name || 'User' }}</h1>
@@ -15,6 +31,13 @@
         </div>
         <div class="profile-actions">
           <button class="btn btn-outline">Edit Profile</button>
+          <button 
+            v-if="profilePicture" 
+            @click="removeProfilePicture" 
+            class="btn btn-outline btn-sm"
+          >
+            Remove Photo
+          </button>
         </div>
       </div>
 
@@ -184,6 +207,78 @@ const preferences = ref({
   smsNotifications: true
 })
 
+// Profile picture state
+const profilePicture = ref(localStorage.getItem('userProfilePicture') || '')
+const fileInput = ref(null)
+const isUploading = ref(false)
+
+const avatarStyle = computed(() => {
+  if (profilePicture.value) {
+    return {
+      backgroundImage: 'none',
+      background: 'transparent'
+    }
+  }
+  return {}
+})
+
+// Profile picture functions
+function triggerFileInput() {
+  fileInput.value?.click()
+}
+
+function handleFileChange(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    toast.error('Please select an image file')
+    return
+  }
+  
+  // Validate file size (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('Image size must be less than 5MB')
+    return
+  }
+  
+  isUploading.value = true
+  
+  // Read and process the image
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const imageUrl = e.target.result
+    profilePicture.value = imageUrl
+    
+    // Save to localStorage for persistence
+    localStorage.setItem('userProfilePicture', imageUrl)
+    
+    // Trigger storage event to update other components (like header)
+    window.dispatchEvent(new Event('storage'))
+    
+    isUploading.value = false
+    toast.success('Profile picture updated successfully!')
+  }
+  
+  reader.onerror = () => {
+    isUploading.value = false
+    toast.error('Failed to upload image. Please try again.')
+  }
+  
+  reader.readAsDataURL(file)
+}
+
+function removeProfilePicture() {
+  profilePicture.value = ''
+  localStorage.removeItem('userProfilePicture')
+  
+  // Trigger storage event to update other components (like header)
+  window.dispatchEvent(new Event('storage'))
+  
+  toast.success('Profile picture removed')
+}
+
 // Address functionality
 const isAddingAddress = ref(false)
 
@@ -244,6 +339,12 @@ onMounted(() => {
   box-shadow: var(--shadow-sm);
 }
 
+.profile-avatar .avatar-container {
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+}
+
 .profile-avatar .avatar-circle.large {
   width: 80px;
   height: 80px;
@@ -259,6 +360,69 @@ onMounted(() => {
   border: 3px solid var(--color-surface);
   position: relative;
   border-radius: 50%;
+  overflow: hidden;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  cursor: pointer;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.avatar-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.4), rgba(118, 75, 162, 0.4));
+  mix-blend-mode: overlay;
+}
+
+.avatar-overlay svg {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 4px;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.avatar-overlay span {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  line-height: 1.2;
+  width: 100%;
+}
+
+.profile-avatar .avatar-container:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.hidden-input {
+  display: none;
 }
 
 .profile-avatar .avatar-circle.large:hover {

@@ -22,11 +22,20 @@
           <div class="product-gallery">
             <div class="main-image-container">
               <img 
+                ref="mainImageRef"
                 :src="product.image" 
                 :alt="product.title"
                 class="main-image"
                 @error="handleImageError"
+                @mouseenter="showMagnifier = true"
+                @mouseleave="showMagnifier = false"
+                @mousemove="updateMagnifier"
               />
+              <div 
+                v-if="showMagnifier"
+                class="magnifier"
+                :style="magnifierStyle"
+              ></div>
               <div class="image-overlay">
                 <button 
                   @click="toggleWishlist"
@@ -210,6 +219,9 @@ const toast = useToast()
 const quantity = ref(1)
 const selectedImage = ref(1)
 const loading = ref(false)
+const showMagnifier = ref(false)
+const magnifierStyle = ref({})
+const mainImageRef = ref(null)
 
 // Computed properties
 const product = computed(() => {
@@ -315,6 +327,38 @@ function toggleWishlist() {
   toast.success(`${product.value.title} ${action} wishlist!`)
 }
 
+function updateMagnifier(event) {
+  if (!mainImageRef.value) return
+  
+  const rect = mainImageRef.value.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+  
+  // Calculate position for magnifier (positioned aside from cursor)
+  const magnifierSize = 150
+  const offset = 20 // Distance from cursor
+  const magnifierX = x + offset
+  const magnifierY = y - magnifierSize / 2
+  
+  // Keep magnifier within image bounds
+  const maxX = rect.width - magnifierSize
+  const maxY = rect.height - magnifierSize
+  const finalX = Math.min(Math.max(0, magnifierX), maxX)
+  const finalY = Math.min(Math.max(0, magnifierY), maxY)
+  
+  // Calculate background position for magnified view (cursor at center of magnified area)
+  const bgX = -(x * 2 - magnifierSize / 2)
+  const bgY = -(y * 2 - magnifierSize / 2)
+  
+  magnifierStyle.value = {
+    left: `${finalX}px`,
+    top: `${finalY}px`,
+    backgroundImage: `url(${product.value.image})`,
+    backgroundPosition: `${bgX}px ${bgY}px`,
+    backgroundSize: `${rect.width * 2}px ${rect.height * 2}px`
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
   if (productsStore.all.length === 0) {
@@ -397,6 +441,27 @@ onMounted(async () => {
   object-fit: contain;
   transition: transform var(--transition-normal);
   padding: var(--space-4);
+  cursor: crosshair;
+}
+
+.magnifier {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 10;
+  background-repeat: no-repeat;
+  opacity: 0;
+  animation: fadeIn 0.2s ease forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
 }
 
 .image-overlay {

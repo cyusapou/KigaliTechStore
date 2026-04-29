@@ -66,7 +66,8 @@
             :aria-label="`Profile: ${user?.name || 'User'}`"
           >
             <div class="avatar-circle">
-              {{ user?.name?.charAt(0)?.toUpperCase() || 'U' }}
+              <img v-if="profilePicture" :src="profilePicture" :alt="user?.name" class="avatar-image" />
+              <span v-else>{{ user?.name?.charAt(0)?.toUpperCase() || 'U' }}</span>
             </div>
           </router-link>
           <router-link 
@@ -200,6 +201,7 @@ const productsStore = useProductsStore()
 // Reactive state
 const mobileMenuOpen = ref(false)
 const searchQuery = ref('')
+const profilePicture = ref(localStorage.getItem('userProfilePicture') || '')
 
 // Computed properties
 const isAuthenticated = computed(() => authStore.isAuthenticated)
@@ -232,6 +234,17 @@ function handleSearch() {
     router.push('/products')
   }
 }
+
+// Update profile picture when localStorage changes
+function updateProfilePicture() {
+  profilePicture.value = localStorage.getItem('userProfilePicture') || ''
+}
+
+// Listen for storage changes (for cross-tab sync)
+window.addEventListener('storage', updateProfilePicture)
+
+// Also update when component mounts
+updateProfilePicture()
 </script>
 
 <style scoped>
@@ -399,6 +412,14 @@ function handleSearch() {
   transition: all var(--transition-fast);
   box-shadow: var(--shadow-sm);
   border: 2px solid var(--color-surface);
+  overflow: hidden;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .avatar-circle:hover {
